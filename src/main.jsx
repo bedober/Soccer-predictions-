@@ -16,6 +16,9 @@ function App() {
   const [automation, setAutomation] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [sentNow, setSentNow] = useState(false);
+  const [tiktokOpen, setTiktokOpen] = useState(false);
+  const [tiktokStatus, setTiktokStatus] = useState('');
+  const [tiktokPost, setTiktokPost] = useState({ title: '', videoUrl: '', privacyLevel: 'SELF_ONLY', publishAt: '' });
   const [form, setForm] = useState({ name: '', email: '', group: 'Match alerts' });
   const activeCount = useMemo(() => recipients.filter((item) => item.active).length, [recipients]);
 
@@ -30,6 +33,16 @@ function App() {
   const sendUpdate = () => {
     setSentNow(true);
     window.setTimeout(() => setSentNow(false), 3200);
+  };
+  const scheduleTikTok = async (event) => {
+    event.preventDefault();
+    setTiktokStatus('Saving schedule…');
+    try {
+      const response = await fetch('/api/tiktok/schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...tiktokPost, disableDuet: false, disableComment: false, disableStitch: false }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Unable to save the schedule.');
+      setTiktokStatus(`Scheduled for ${new Date(payload.publishAt).toLocaleString()}.`);
+    } catch (error) { setTiktokStatus(error.message); }
   };
 
   return <div className="app-shell">
@@ -60,10 +73,13 @@ function App() {
           <article className="panel performance"><div className="panel-heading"><div><p className="eyebrow">LAST 30 DAYS</p><h2>Engagement</h2></div><button className="dots">•••</button></div><div className="metric-row"><div><strong>62.4%</strong><span>Open rate</span></div><div><strong>18.9%</strong><span>Click rate</span></div></div><svg viewBox="0 0 450 126" preserveAspectRatio="none" aria-label="Engagement trend"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#7564e8" stopOpacity=".22"/><stop offset="1" stopColor="#7564e8" stopOpacity="0"/></linearGradient></defs><path d="M0 93 C24 73 42 84 62 70 S101 100 123 82 S159 34 178 59 S215 78 238 55 S268 70 290 40 S329 64 348 44 S386 65 405 35 S432 43 450 12 L450 126 L0 126Z" fill="url(#fill)"/><path d="M0 93 C24 73 42 84 62 70 S101 100 123 82 S159 34 178 59 S215 78 238 55 S268 70 290 40 S329 64 348 44 S386 65 405 35 S432 43 450 12" fill="none" stroke="#7666e8" strokeWidth="3"/></svg><div className="axis"><span>May 25</span><span>Jun 1</span><span>Jun 8</span><span>Jun 15</span><span>Jun 22</span></div></article>
         </section>
 
+        <section className="panel tiktok-panel"><div><p className="eyebrow">TIKTOK CONTENT API</p><h2>Automated TikTok posts</h2><p>Schedule a publicly hosted match video for publication from your connected TikTok account.</p></div><div className="tiktok-actions"><span className="api-chip">● Server connection required</span><button className="primary-button compact" onClick={() => { setTiktokStatus(''); setTiktokOpen(true); }}>Schedule post</button></div></section>
+
         <section className="panel recipients-panel"><div className="panel-heading"><div><p className="eyebrow">SAVED CONTACTS</p><h2>Recipients</h2></div><button className="text-button">View all <span>→</span></button></div><div className="recipient-list">{recipients.slice(0, 4).map((person, index) => <div className="recipient" key={person.email}><div className={'recipient-avatar a' + index}>{person.name.split(' ').map(x => x[0]).join('')}</div><div className="person"><strong>{person.name}</strong><span>{person.email}</span></div><span className="tag">{person.group}</span><label className="switch tiny"><input aria-label={`Toggle ${person.name}`} type="checkbox" checked={person.active} onChange={() => setRecipients(current => current.map(item => item.email === person.email ? { ...item, active: !item.active } : item))}/><span /></label></div>)}</div></section>
       </div>
     </main>
     {modalOpen && <div className="modal-backdrop" onMouseDown={() => setModalOpen(false)}><form className="modal" onSubmit={addRecipient} onMouseDown={(e) => e.stopPropagation()}><button className="close" type="button" onClick={() => setModalOpen(false)}>×</button><p className="eyebrow">SAVED CONTACTS</p><h2>Add a recipient</h2><label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jordan Lee" autoFocus /></label><label>Email address<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jordan@example.com" /></label><label>Alert group<select value={form.group} onChange={(e) => setForm({ ...form, group: e.target.value })}><option>Match alerts</option><option>Weekly digest</option><option>Premium picks</option></select></label><button className="primary-button" type="submit">Save recipient</button></form></div>}
+    {tiktokOpen && <div className="modal-backdrop" onMouseDown={() => setTiktokOpen(false)}><form className="modal" onSubmit={scheduleTikTok} onMouseDown={(e) => e.stopPropagation()}><button className="close" type="button" onClick={() => setTiktokOpen(false)}>×</button><p className="eyebrow">TIKTOK CONTENT API</p><h2>Schedule a post</h2><p className="modal-note">Your video must be available from a public HTTPS URL. The server keeps the TikTok access token private.</p><label>Caption<input value={tiktokPost.title} onChange={(e) => setTiktokPost({ ...tiktokPost, title: e.target.value })} placeholder="Tonight's prediction is in…" autoFocus /></label><label>Public video URL<input type="url" value={tiktokPost.videoUrl} onChange={(e) => setTiktokPost({ ...tiktokPost, videoUrl: e.target.value })} placeholder="https://cdn.example.com/prediction.mp4" /></label><label>Publish at<input type="datetime-local" value={tiktokPost.publishAt} onChange={(e) => setTiktokPost({ ...tiktokPost, publishAt: e.target.value })} /></label><label>Privacy<select value={tiktokPost.privacyLevel} onChange={(e) => setTiktokPost({ ...tiktokPost, privacyLevel: e.target.value })}><option value="SELF_ONLY">Only me</option><option value="MUTUAL_FOLLOW_FRIENDS">Friends</option><option value="PUBLIC_TO_EVERYONE">Everyone</option></select></label>{tiktokStatus && <p className="form-status">{tiktokStatus}</p>}<button className="primary-button" type="submit">Schedule TikTok post</button></form></div>}
   </div>;
 }
 
